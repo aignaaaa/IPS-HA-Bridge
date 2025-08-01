@@ -1,16 +1,21 @@
 {
   "name": "HA Auto-Discovery Bridge",
-  "url": "https://github.com/dein-user/IPS-HA-Bridge.git",
-  "author": "ChatGPT",
-  "compatibility": { "version": "5.0" },
+  "url": "https://github.com/aigaaaa/IPS-HA-Bridge.git",
+  "author": "aigaaaa",
+  "compatibility": {
+    "version": "6.0"
+  },
   "version": "0.3",
   "build": 3,
-  "branches": ["master"],
+  "date": "2025-08-01",
+  "branches": [
+    "main"
+  ],
   "modules": [
     {
       "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
-      "name": "HA Auto-Discovery Bridge",
-      "type": 3
+      "type": 3,
+      "module": "module.json"
     }
   ]
 }

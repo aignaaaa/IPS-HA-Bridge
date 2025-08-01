@@ -1,0 +1,25 @@
+{
+  "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
+  "name": "HA Auto-Discovery Bridge",
+  "type": 3,
+  "vendor": "",
+  "author": "ChatGPT",
+  "url": "",                        // leer lassen, wenn kein Git-Repo
+  "compatibility": {
+    "version": "5.0"
+  },
+  "version": "0.3",
+  "build": 3,
+  "date": "2025-08-01",
+  "aliases": [
+    "HA Auto-Discovery Bridge"
+  ],
+  "parentRequirements": [
+    "{778E2FDE-2B5B-44A9-A8A5-5F732B3F5F39}"
+  ],
+  "childRequirements": [],
+  "implemented": [
+    "{0F830EB5-3EFF-4FCB-8AB2-0F6557933921}"
+  ],
+  "prefix": "HAB"
+}

@@ -1,20 +1,12 @@
 {
-  "name": "HA Auto-Discovery Bridge",
-  "url": "https://github.com/aignaaaa/IPS-HA-Bridge.git",
+  "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
   "author": "aignaaaa",
+  "name": "HA Auto-Discovery Bridge",
+  "url": "https://github.com/aignaaaa/IPS-HA-Bridge",
   "compatibility": {
     "version": "6.0"
   },
   "version": "0.3",
   "build": 3,
-  "branches": [
-    "main"
-  ],
-  "modules": [
-    {
-      "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
-      "module": "module.json",
-      "type": 3
-    }
-  ]
+  "date": 0
 }

@@ -1,11 +1,9 @@
 {
-  "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
+  "id": "{REPLACE-WITH-NEW-LIB-GUID}",
   "author": "aignaaaa",
   "name": "HA Auto-Discovery Bridge",
   "url": "https://github.com/aignaaaa/IPS-HA-Bridge",
-  "compatibility": {
-    "version": "6.0"
-  },
+  "compatibility": { "version": "6.0" },
   "version": "0.3",
   "build": 3,
   "date": 0

@@ -7,12 +7,14 @@ class HAAuto extends IPSModule
     {
         parent::Create();
         $this->RegisterPropertyInteger('MQTTInstanceID', 0);
+        // Wohin sollen die Ordner? 0 = unter der Instanz
+        $this->RegisterPropertyInteger('RootCategoryID', 0);
     }
 
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
-        // KEIN MQTT_Subscribe/Unsubscribe hier – sonst Fatal Error bei älteren Systemen
+        $this->ensureStructure();
     }
 
     public function GetConfigurationForm(): string
@@ -25,40 +27,44 @@ class HAAuto extends IPSModule
                     'caption' => 'MQTT-Client (I/O)'
                 ],
                 [
+                    'type'    => 'SelectCategory',
+                    'name'    => 'RootCategoryID',
+                    'caption' => 'Zielordner für "HAAuto – Geräte" (leer = unter der Instanz)'
+                ],
+                [
                     'type'    => 'Label',
-                    'caption' => 'Discovery-Prefix ist "homeassistant". '
-                               . 'Falls der Button unten nicht funktioniert, bitte im MQTT-Client manuell "homeassistant/#" abonnieren.'
+                    'caption' => 'Es werden Ordner "switch", "light", "sensor" automatisch angelegt.'
                 ]
             ],
-            'actions' => [
-                [
-                    'type'    => 'Button',
-                    'caption' => 'Subscribe (falls verfügbar)',
-                    'onClick' => 'HAAuto_Subscribe($id);'
-                ]
-            ]
+            'actions' => []
         ]);
     }
 
-    public function Subscribe(): void
-    {
-        $mqttID = $this->ReadPropertyInteger('MQTTInstanceID');
-        if ($mqttID <= 0 || !IPS_InstanceExists($mqttID)) {
-            echo "Bitte zuerst einen MQTT-Client (I/O) auswählen und übernehmen.";
-            return;
-        }
+    /** -------- helpers ---------- */
 
-        // Nur versuchen, wenn die Funktionen in deiner Symcon-Version vorhanden sind
-        if (function_exists('MQTT_Unsubscribe') && function_exists('MQTT_Subscribe')) {
-            @MQTT_Unsubscribe($mqttID, 'homeassistant/#');
-            if (@MQTT_Subscribe($mqttID, 'homeassistant/#', 0)) {
-                echo "OK: abonniert auf homeassistant/#";
-            } else {
-                echo "Subscribe fehlgeschlagen – ist der MQTT-Client verbunden?";
-            }
-        } else {
-            echo "Deine Symcon-Version stellt MQTT_* Funktionen nicht bereit. "
-               . "Bitte im MQTT-Client die Subscription 'homeassistant/#' manuell anlegen.";
+    private function ensureStructure(): void
+    {
+        $rootCat = $this->ReadPropertyInteger('RootCategoryID');
+        $parent  = ($rootCat > 0 && @IPS_ObjectExists($rootCat)) ? $rootCat : $this->InstanceID;
+
+        $devicesCat = $this->getOrCreateCategory('HAAuto – Geräte', $parent, 'haa_devices');
+        $this->getOrCreateCategory('switch', $devicesCat, 'haa_switch');
+        $this->getOrCreateCategory('light',  $devicesCat, 'haa_light');
+        $this->getOrCreateCategory('sensor', $devicesCat, 'haa_sensor');
+    }
+
+    private function getOrCreateCategory(string $name, int $parentID, string $ident): int
+    {
+        $id = @IPS_GetObjectIDByIdent($ident, $parentID);
+        if ($id && IPS_ObjectExists($id)) {
+            IPS_SetName($id, $name);
+            IPS_SetParent($id, $parentID);
+            return $id;
         }
+        $id = IPS_CreateCategory();
+        IPS_SetName($id, $name);
+        IPS_SetIdent($id, $ident);
+        IPS_SetParent($id, $parentID);
+        return $id;
     }
 }

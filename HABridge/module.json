@@ -7,5 +7,5 @@
   "parentRequirements": [],
   "childRequirements": [],
   "implemented": [],
-  "prefix": "HAB"
+  "prefix": "HAAuto"      // ← muss zur Klasse passen
 }

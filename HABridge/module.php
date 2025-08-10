@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 
-class HAAuto extends IPSModule   // ← dieser Klassenname ist entscheidend
+class HABridge extends IPSModule
 {
     public function Create(): void
     {
         parent::Create();
+        $this->RegisterPropertyString('Note', '');
     }
 
     public function ApplyChanges(): void

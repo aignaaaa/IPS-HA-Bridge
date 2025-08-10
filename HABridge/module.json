@@ -2,10 +2,11 @@
   "id": "{D13F9E1A-9D19-4EE3-8E8C-6C2E55B9E0A1}",
   "name": "HA Auto-Discovery Bridge",
   "type": 3,
+  "author": "aignaaaa",
   "vendor": "aignaaaa",
   "aliases": ["HA Auto-Discovery Bridge"],
   "parentRequirements": [],
   "childRequirements": [],
   "implemented": [],
-  "prefix": "HAAuto"      // ← muss zur Klasse passen
+  "prefix": "HABridge"
 }

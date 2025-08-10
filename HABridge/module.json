@@ -1,11 +1,11 @@
 {
-  "id": "{B735728B-4CBD-4375-9F65-2B3E7F8956D7}",
+  "id": "{D13F9E1A-9D19-4EE3-8E8C-6C2E55B9E0A1}",
   "name": "HA Auto-Discovery Bridge",
   "type": 3,
   "vendor": "aignaaaa",
   "aliases": ["HA Auto-Discovery Bridge"],
   "parentRequirements": [],
   "childRequirements": [],
-  "implemented": ["{018EF6B5-AB94-40C6-AA53-46943E824ACF}"],
+  "implemented": [],
   "prefix": "HAB"
 }

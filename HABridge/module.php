@@ -13,5 +13,6 @@ class HAAuto extends IPSModule
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        // Keine Parent-Verbindung, noch minimal
     }
 }

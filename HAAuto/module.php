@@ -6,11 +6,8 @@ class HAAuto extends IPSModule
     public function Create(): void
     {
         parent::Create();
-        // optional: MQTT-Client (wird aktuell nicht benötigt)
-        $this->RegisterPropertyInteger('MQTTInstanceID', 0);
-        // Zielordner für die Geräte-Struktur (0 = unter der Instanz)
-        $this->RegisterPropertyInteger('RootCategoryID', 0);
-        // Home Assistant API
+        $this->RegisterPropertyInteger('MQTTInstanceID', 0); // optional (derzeit ungenutzt)
+        $this->RegisterPropertyInteger('RootCategoryID', 0); // Zielordner (0 = unter der Instanz)
         $this->RegisterPropertyString('HA_URL', '');
         $this->RegisterPropertyString('HA_TOKEN', '');
     }
@@ -32,8 +29,8 @@ class HAAuto extends IPSModule
                 ['type' => 'Label', 'caption' => 'Ordner "HAAuto – Geräte / switch | light | sensor" werden automatisch erstellt.']
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'HA-Verbindung testen',  'onClick' => 'HAAuto_TestHA($id);'],
-                ['type' => 'Button', 'caption' => 'Aktionen reparieren',   'onClick' => 'HAAuto_FixActions($id);']
+                ['type' => 'Button', 'caption' => 'HA-Verbindung testen', 'onClick' => 'HAAuto_TestHA($id);'],
+                ['type' => 'Button', 'caption' => 'Aktionen reparieren',  'onClick' => 'HAAuto_FixActions($id);']
             ]
         ]);
     }
@@ -61,14 +58,12 @@ class HAAuto extends IPSModule
     /** Repariert fehlende Actions für alle Switch-Variablen */
     public function FixActions(): int
     {
-        $cats = $this->ensureStructure();
+        $cats  = $this->ensureStructure();
         $parent = $cats['switch'];
         $fixed = 0;
         foreach (IPS_GetChildrenIDs($parent) as $cid) {
             $obj = IPS_GetObject($cid);
-            if ($obj['ObjectType'] !== 2 /*Variable*/) {
-                continue;
-            }
+            if ($obj['ObjectType'] !== 2) continue; // 2 = Variable
             $var = IPS_GetVariable($cid);
             if (($var['VariableCustomAction'] ?? 0) !== $this->InstanceID) {
                 @IPS_SetVariableCustomAction($cid, $this->InstanceID);
@@ -80,8 +75,40 @@ class HAAuto extends IPSModule
     }
 
     /**
-     * Legt eine schaltbare Variable (Switch) an, die HA-Service switch.turn_on/off nutzt.
-     * Beispiel-Aufruf: HAAuto_CreateSwitch(<InstanzID>, 'switch.wohnzimmer_steckdose', 'Wohnzimmer Steckdose');
+     * Entities auflisten – nutzt robustes haRequest (mit HTTP-Fallback).
+     * @param string $filterDomain z.B. 'switch', 'light', 'sensor' oder '' für alle
+     * @return array [['entity_id' => 'switch.xyz', 'friendly_name' => 'Name'], ...]
+     */
+    public function ListEntities(string $filterDomain = ''): array
+    {
+        try {
+            $states = $this->haRequest('GET', '/api/states');
+        } catch (\Throwable $e) {
+            echo "Fehler: " . $e->getMessage();
+            return [];
+        }
+        if (!is_array($states)) {
+            echo "Unerwartete Antwort.";
+            return [];
+        }
+        $out = [];
+        foreach ($states as $row) {
+            $eid = $row['entity_id'] ?? '';
+            if ($eid === '') continue;
+            if ($filterDomain !== '' && strpos($eid, $filterDomain . '.') !== 0) continue;
+            $name = $row['attributes']['friendly_name'] ?? '';
+            $out[] = ['entity_id' => $eid, 'friendly_name' => $name];
+        }
+        // Für bequeme Anzeige in der Konsole zusätzlich ausgeben
+        foreach ($out as $e) {
+            echo str_pad($e['entity_id'], 40) . " " . $e['friendly_name'] . PHP_EOL;
+        }
+        echo "Gefunden: " . count($out) . ($filterDomain ? " ($filterDomain)" : " Entities") . PHP_EOL;
+        return $out;
+    }
+
+    /**
+     * Legt eine schaltbare Variable (Switch) an (Service switch.turn_on/off).
      */
     public function CreateSwitch(string $entityId, string $friendlyName = ''): int
     {
@@ -94,10 +121,7 @@ class HAAuto extends IPSModule
         $varID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
         if ($varID === false) {
             $varID = $this->RegisterVariableBoolean($ident, $name);
-            // hübsches Profil (optional)
-            if (!@IPS_VariableProfileExists('~Switch')) {
-                // falls nicht vorhanden, kein Problem – Profil ist optional
-            } else {
+            if (@IPS_VariableProfileExists('~Switch')) {
                 @IPS_SetVariableCustomProfile($varID, '~Switch');
             }
             IPS_SetParent($varID, $parent);
@@ -106,10 +130,9 @@ class HAAuto extends IPSModule
             IPS_SetParent($varID, $parent);
         }
 
-        // Entity-Info in ObjectInfo speichern
         IPS_SetInfo($varID, json_encode(['entity_id' => $entityId, 'domain' => 'switch']));
 
-        // Action ZWINGEND zuweisen (immer, auch bei bestehenden Variablen)
+        // Action zwingend zuweisen
         $this->EnableAction($ident);
         $var = IPS_GetVariable($varID);
         if (($var['VariableCustomAction'] ?? 0) !== $this->InstanceID) {
@@ -119,16 +142,14 @@ class HAAuto extends IPSModule
         return $varID;
     }
 
-    /** Action-Handler für schaltbare Variablen */
+    /** Action-Handler */
     public function RequestAction($Ident, $Value)
     {
         if ($this->startsWith($Ident, 'sw_')) {
             $varID = $this->GetIDForIdent($Ident);
             $info  = @json_decode(IPS_GetObject($varID)['ObjectInfo'] ?? '[]', true);
             $entity = $info['entity_id'] ?? null;
-            if (!$entity) {
-                throw new Exception("Keine entity_id im Objekt gespeichert.");
-            }
+            if (!$entity) throw new Exception("Keine entity_id im Objekt gespeichert.");
             $service = $Value ? 'turn_on' : 'turn_off';
             $ok = $this->haCallService('switch', $service, $entity, []);
             if ($ok) {
@@ -137,7 +158,6 @@ class HAAuto extends IPSModule
             }
             throw new Exception("HA-Service fehlgeschlagen.");
         }
-
         throw new Exception("Unbekannter Ident: $Ident");
     }
 
@@ -202,12 +222,10 @@ class HAAuto extends IPSModule
             ],
             'Method'         => strtoupper($method)
         ];
-        if (!is_null($json)) {
-            $opts['Content'] = json_encode($json);
-        }
+        if (!is_null($json)) $opts['Content'] = json_encode($json);
 
         if (stripos($base, 'https://') === 0) {
-            $opts['VerifyPeer'] = false; // nur im LAN einsetzen!
+            $opts['VerifyPeer'] = false; // nur im LAN verwenden!
             $opts['VerifyHost'] = false;
         }
 
@@ -215,26 +233,21 @@ class HAAuto extends IPSModule
         $res = @Sys_GetURLContentEx($url, $opts);
         if ($res !== false && $res !== null) {
             $trim = trim($res);
-            if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) {
-                return $res;
-            }
+            if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) return $res;
             return json_decode($res, true);
         }
 
         // --------- Fallback (Raw HTTP via Socket) nur für http:// ----------
         $pu = parse_url($url);
         $scheme = $pu['scheme'] ?? 'http';
-        if ($scheme !== 'http') {
-            throw new Exception('HTTP fehlgeschlagen (und HTTPS-Fallback nicht aktiviert): ' . $url);
-        }
+        if ($scheme !== 'http') throw new Exception('HTTP fehlgeschlagen (und HTTPS-Fallback nicht aktiviert): ' . $url);
+
         $host = $pu['host'] ?? '127.0.0.1';
         $port = $pu['port'] ?? 80;
         $pathOnly = ($pu['path'] ?? '/') . (isset($pu['query']) ? ('?' . $pu['query']) : '');
 
         $fp = @fsockopen($host, $port, $errno, $errstr, 10);
-        if (!$fp) {
-            throw new Exception("HTTP Fallback Socket-Fehler: $errno $errstr");
-        }
+        if (!$fp) throw new Exception("HTTP Fallback Socket-Fehler: $errno $errstr");
 
         $req  = $opts['Method'] . ' ' . $pathOnly . " HTTP/1.1\r\n";
         $req .= 'Host: ' . $host . "\r\n";
@@ -246,23 +259,17 @@ class HAAuto extends IPSModule
             $req .= 'Content-Length: ' . strlen($body) . "\r\n";
         }
         $req .= "Connection: close\r\n\r\n";
-        if (!is_null($json)) {
-            $req .= $body;
-        }
+        if (!is_null($json)) $req .= $body;
 
         fwrite($fp, $req);
         $response = '';
-        while (!feof($fp)) {
-            $response .= fread($fp, 8192);
-        }
+        while (!feof($fp)) { $response .= fread($fp, 8192); }
         fclose($fp);
 
         $parts = explode("\r\n\r\n", $response, 2);
         $body  = $parts[1] ?? '';
         $trim  = trim($body);
-        if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) {
-            return $body;
-        }
+        if ($trim === '' || ($trim[0] !== '{' && $trim[0] !== '[')) return $body;
         return json_decode($body, true);
     }
 

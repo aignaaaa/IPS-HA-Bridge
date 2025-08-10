@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-class HABridge extends IPSModule
+class HAAuto extends IPSModule
 {
     public function Create(): void
     {

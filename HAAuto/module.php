@@ -34,7 +34,7 @@ class HAAuto extends IPSModule
                 [
                     'type'    => 'Button',
                     'caption' => 'Subscribe (falls verfügbar)',
-                    'onClick' => 'HAAuto_Subscribe($_IPS["TARGET"]);'
+                    'onClick' => 'HAAuto_Subscribe($id);'
                 ]
             ]
         ]);

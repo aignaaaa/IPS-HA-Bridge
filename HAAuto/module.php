@@ -6,7 +6,7 @@ class HAAuto extends IPSModule
     public function Create(): void
     {
         parent::Create();
-        // optional: wir speichern den MQTT-Client (I/O), auch wenn wir ihn hier nicht benötigen
+        // optional: MQTT-Client (wird aktuell nicht benötigt)
         $this->RegisterPropertyInteger('MQTTInstanceID', 0);
         // Zielordner für die Geräte-Struktur (0 = unter der Instanz)
         $this->RegisterPropertyInteger('RootCategoryID', 0);
@@ -32,7 +32,8 @@ class HAAuto extends IPSModule
                 ['type' => 'Label', 'caption' => 'Ordner "HAAuto – Geräte / switch | light | sensor" werden automatisch erstellt.']
             ],
             'actions' => [
-                ['type' => 'Button', 'caption' => 'HA-Verbindung testen', 'onClick' => 'HAAuto_TestHA($id);']
+                ['type' => 'Button', 'caption' => 'HA-Verbindung testen',  'onClick' => 'HAAuto_TestHA($id);'],
+                ['type' => 'Button', 'caption' => 'Aktionen reparieren',   'onClick' => 'HAAuto_FixActions($id);']
             ]
         ]);
     }
@@ -47,7 +48,6 @@ class HAAuto extends IPSModule
                 echo "OK: Home Assistant API erreichbar.";
                 return;
             }
-            // Einige HA-Installationen antworten mit JSON
             if (is_array($res)) {
                 echo "Antwort: " . json_encode($res);
                 return;
@@ -56,6 +56,27 @@ class HAAuto extends IPSModule
         } catch (\Throwable $e) {
             echo "Fehler: " . $e->getMessage();
         }
+    }
+
+    /** Repariert fehlende Actions für alle Switch-Variablen */
+    public function FixActions(): int
+    {
+        $cats = $this->ensureStructure();
+        $parent = $cats['switch'];
+        $fixed = 0;
+        foreach (IPS_GetChildrenIDs($parent) as $cid) {
+            $obj = IPS_GetObject($cid);
+            if ($obj['ObjectType'] !== 2 /*Variable*/) {
+                continue;
+            }
+            $var = IPS_GetVariable($cid);
+            if (($var['VariableCustomAction'] ?? 0) !== $this->InstanceID) {
+                @IPS_SetVariableCustomAction($cid, $this->InstanceID);
+                $fixed++;
+            }
+        }
+        echo "Repariert: $fixed";
+        return $fixed;
     }
 
     /**
@@ -67,19 +88,34 @@ class HAAuto extends IPSModule
         $cats   = $this->ensureStructure();
         $parent = $cats['switch'];
 
-        $ident = 'sw_' . preg_replace('/[^A-Za-z0-9_]/', '_', $entityId);
+        $ident = $this->identFromEntity('sw', $entityId);
         $name  = $friendlyName !== '' ? $friendlyName : $entityId;
 
         $varID = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
         if ($varID === false) {
             $varID = $this->RegisterVariableBoolean($ident, $name);
+            // hübsches Profil (optional)
+            if (!@IPS_VariableProfileExists('~Switch')) {
+                // falls nicht vorhanden, kein Problem – Profil ist optional
+            } else {
+                @IPS_SetVariableCustomProfile($varID, '~Switch');
+            }
             IPS_SetParent($varID, $parent);
-            $this->EnableAction($ident);
-            IPS_SetInfo($varID, json_encode(['entity_id' => $entityId, 'domain' => 'switch']));
         } else {
             IPS_SetName($varID, $name);
             IPS_SetParent($varID, $parent);
         }
+
+        // Entity-Info in ObjectInfo speichern
+        IPS_SetInfo($varID, json_encode(['entity_id' => $entityId, 'domain' => 'switch']));
+
+        // Action ZWINGEND zuweisen (immer, auch bei bestehenden Variablen)
+        $this->EnableAction($ident);
+        $var = IPS_GetVariable($varID);
+        if (($var['VariableCustomAction'] ?? 0) !== $this->InstanceID) {
+            @IPS_SetVariableCustomAction($varID, $this->InstanceID);
+        }
+
         return $varID;
     }
 
@@ -135,6 +171,12 @@ class HAAuto extends IPSModule
         return $id;
     }
 
+    private function identFromEntity(string $prefix, string $entityId): string
+    {
+        $san = preg_replace('/[^A-Za-z0-9_]/', '_', $entityId);
+        return $prefix . '_' . $san;
+    }
+
     private function startsWith(string $haystack, string $needle): bool
     {
         return substr($haystack, 0, strlen($needle)) === $needle;
@@ -142,10 +184,6 @@ class HAAuto extends IPSModule
 
     /* ===================== Home Assistant HTTP ===================== */
 
-    /**
-     * Robust: Erst Sys_GetURLContentEx(); wenn das fehlschlägt, Fallback per Raw-Socket (HTTP).
-     * Für HTTPS kann (nur im LAN) die Zertifikatsprüfung deaktiviert werden.
-     */
     private function haRequest(string $method, string $path, ?array $json = null)
     {
         $base = rtrim($this->ReadPropertyString('HA_URL'), '/');
@@ -168,9 +206,8 @@ class HAAuto extends IPSModule
             $opts['Content'] = json_encode($json);
         }
 
-        // Bei https ggf. (nur intern!) Zertifikatsprüfung aus:
         if (stripos($base, 'https://') === 0) {
-            $opts['VerifyPeer'] = false;
+            $opts['VerifyPeer'] = false; // nur im LAN einsetzen!
             $opts['VerifyHost'] = false;
         }
 
@@ -220,7 +257,6 @@ class HAAuto extends IPSModule
         }
         fclose($fp);
 
-        // Header und Body trennen
         $parts = explode("\r\n\r\n", $response, 2);
         $body  = $parts[1] ?? '';
         $trim  = trim($body);

@@ -1,0 +1,12 @@
+{
+  "id": "{3F2E7A80-5D3B-4F35-9EF9-1F79B3B5A7C1}",
+  "name": "HA Auto-Discovery Bridge (Fix)",
+  "type": 3,
+  "author": "aignaaaa",
+  "vendor": "aignaaaa",
+  "aliases": ["HA Auto-Discovery Bridge (Fix)"],
+  "parentRequirements": [],
+  "childRequirements": [],
+  "implemented": [],
+  "prefix": "HAFix"
+}

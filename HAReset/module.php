@@ -1,12 +1,11 @@
 <?php
 declare(strict_types=1);
 
-class HAAuto extends IPSModule
+class HAReset extends IPSModule
 {
     public function Create(): void
     {
         parent::Create();
-        $this->RegisterPropertyString('Note', '');
     }
 
     public function ApplyChanges(): void
